@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -20,18 +21,23 @@ class Triangle : public object
 
     Shader *shader;
 
-    float speed = 0.05;
+    float position[2] = {0, 0};
+    float speed = 0.1;
 
     // defines a triangle
-    float vertices[9] = {-0.5f, -0.5f, 0, 0.5f, -0.5f, 0, 0, 0.5f, 0};
+    float vertices[18] = {
+        // x, y, z, r, g, b
+        -0.5f, -0.5f, 0, 0, 0, 1, // bottom left
+        0.5f,  -0.5f, 0, 0, 1, 1, // bottom right
+        0,     0.5f,  0, 0, 0, 1  // top
+    };
 
   public:
     Triangle()
     {
         this->log = new Logging();
 
-        this->shader = new Shader("shaders/vertex_triangle", "shaders/fragment_triangle");
-
+        this->shader = new Shader("../shaders/vertex_triangle.glsl", "../shaders/fragment_triangle.glsl");
         // set up vertex data (and buffer(s)) and configure vertex attributes
         // ------------------------------------------------------------------
         unsigned int VBO, VAO;
@@ -46,8 +52,13 @@ class Triangle : public object
         this->setVAO(VAO);
         this->setVBO(VBO);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+        // Position attribute (location = 0), 3 floats per vertex, starting at offset 0
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
+
+        // Color attribute (location = 1), 3 floats per vertex, offset = 3 floats
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
 
         // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound
         // vertex buffer object so afterwards we can safely unbind
@@ -80,17 +91,20 @@ class Triangle : public object
     }
     void Draw() override
     {
-        // draw our first triangle
         glUseProgram(this->shader->shaderProgram);
-        glBindVertexArray(this->VAO); // seeing as we only have a single VAO there's no need to bind it every time, but
-                                      // we'll do so to keep things a bit more organized
+
+        // send position offset to shader
+        int offsetLoc = glGetUniformLocation(this->shader->shaderProgram, "offset");
+        glUniform2f(offsetLoc, position[0], position[1]);
+        if (DEBUG)
+            this->log->print_all(offsetLoc);
+
+        glBindVertexArray(this->VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindVertexArray(0); // no need to unbind it every time
+        glBindVertexArray(0);
     }
     void HandleInput(GLFWwindow *window, int key_pressed, double deltaTime) override
     {
-        std::cout << "some here" << std::endl;
-
         float mvt[] = {0, 0};
 
         auto speed = this->speed * deltaTime;
@@ -113,26 +127,23 @@ class Triangle : public object
             mvt[1] -= speed;
         }
 
+        float length = std::sqrt(std::pow(mvt[0], 2) + std::pow(mvt[1], 2));
+        if (length > 1e-6f)
+        {
+            mvt[0] /= length;
+            mvt[1] /= length;
+            mvt[0] *= speed;
+            mvt[1] *= speed;
+        }
+
         if (DEBUG)
-            this->log->print_all(mvt[0], mvt[1]);
+        {
+            this->log->print_all("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+            this->log->print_all(length, mvt[0], mvt[1]);
+            this->log->print_all(this->position[0], this->position[1]);
+        }
 
-        vertices[0] += mvt[0];
-        vertices[3] += mvt[0];
-        vertices[6] += mvt[0];
-
-        vertices[1] += mvt[1];
-        vertices[4] += mvt[1];
-        vertices[7] += mvt[1];
-
-        // float vertices[9] = {
-        // -0.5f, -0.5f, 0,
-        //  0.5f, -0.5f, 0,
-        //     0,  0.5f, 0,
-        //     ------------
-        //     x,     y, z,
-        // };
-        glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        this->position[0] += mvt[0];
+        this->position[1] += mvt[1];
     }
 };
