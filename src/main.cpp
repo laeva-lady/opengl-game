@@ -5,6 +5,7 @@
 #include <vector>
 #include "../headers/objects.hpp"
 #include "../headers/triangle.hpp"
+#include "../headers/rectangle.hpp"
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void processInput(GLFWwindow *window, std::vector<object *> objs, double deltaTime);
@@ -43,7 +44,8 @@ int main()
         return -1;
     }
 
-    Triangle *T = new Triangle();
+    auto *T = new Triangle();
+    auto *R = new Rectangle();
 
     // uncomment this call to draw in wireframe polygons.
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -65,8 +67,9 @@ int main()
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        T->Draw();
+        std::vector<object *> rs = {T, R}; // list of `object` that need to render
+        for (auto o : rs)
+            o->Draw();
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
